@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фоторедактор</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/konva/8.3.5/konva.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        .container { max-width: 800px; margin: auto; display: flex; }
+        .editor { flex: 3; }
+        .layers { flex: 1; border-left: 1px solid black; padding-left: 10px; }
+        img { max-width: 100%; display: block; margin: auto; }
+        .btn { padding: 10px; margin: 10px; cursor: pointer; }
+        #canvas-container { width: 600px; height: 400px; border: 1px solid black; margin: auto; }
+        .layer-item { display: flex; align-items: center; margin: 5px; cursor: pointer; border: 1px solid gray; padding: 5px; }
+        .layer-item img { width: 40px; height: 40px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="editor">
+            <input type="file" id="fileInput" accept="image/*">
+            <div>
+                <img id="image" style="max-width: 100%;">
+            </div>
+            <button class="btn" id="cropButton">Добавить на холст</button>
+            <label>
+                <input type="checkbox" id="snapRotate"> Привязка к 45°
+            </label>
+            <div id="canvas-container">
+                <div id="canvas"></div>
+            </div>
+        </div>
+        <div class="layers">
+            <h3>Слои</h3>
+            <div id="layer-list"></div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        let cropper;
+        let layerCount = 0;
+        const fileInput = document.getElementById('fileInput');
+        const image = document.getElementById('image');
+        const cropButton = document.getElementById('cropButton');
+        const layerList = document.getElementById('layer-list');
+        const snapRotateCheckbox = document.getElementById('snapRotate');
+        
+        const stage = new Konva.Stage({
+            container: 'canvas',
+            width: 600,
+            height: 400
+        });
+        const layer = new Konva.Layer();
+        stage.add(layer);
+
+        const tr = new Konva.Transformer();
+        layer.add(tr);
+
+        fileInput.addEventListener('change', event => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    image.src = reader.result;
+                    if (cropper) cropper.destroy();
+                    cropper = new Cropper(image, { aspectRatio: 1 });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        cropButton.addEventListener('click', () => {
+            if (!cropper) return;
+            cropper.getCroppedCanvas({
+                width: 200, 
+                height: 200
+            }).toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const img = new Image();
+                img.onload = () => {
+                    const konvaImg = new Konva.Image({
+                        image: img,
+                        x: stage.width() / 2 - 100,
+                        y: stage.height() / 2 - 100,
+                        width: 200,
+                        height: 200,
+                        draggable: true
+                    });
+                    layer.add(konvaImg);
+                    layer.draw();
+                    
+                    konvaImg.on('transform', () => {
+                        let rotation = konvaImg.rotation();
+                        if (snapRotateCheckbox.checked) {
+                            rotation = Math.round(rotation / 45) * 45;
+                        }
+                        konvaImg.rotation(rotation);
+                        konvaImg.setAttrs({
+                            width: konvaImg.width() * konvaImg.scaleX(),
+                            height: konvaImg.height() * konvaImg.scaleY(),
+                            scaleX: 1,
+                            scaleY: 1
+                        });
+                    });
+                    
+                    konvaImg.on('click', (e) => {
+                        tr.nodes([konvaImg]);
+                        layer.draw();
+                        e.cancelBubble = true;
+                    });
+                    
+                    addLayerPreview(konvaImg, url);
+                    tr.nodes([]); // Снять выделение со всех перед добавлением нового
+                };
+                img.src = url;
+            }, 'image/png');
+        });
+        
+        function addLayerPreview(konvaImg, url) {
+            layerCount++;
+            const layerItem = document.createElement('div');
+            layerItem.classList.add('layer-item');
+            layerItem.innerHTML = `<img src="${url}" /><span>Слой ${layerCount}</span>`;
+            layerList.appendChild(layerItem);
+            
+            layerItem.addEventListener('click', () => {
+                tr.nodes([konvaImg]);
+                layer.draw();
+            });
+        }
+        
+        stage.on('click', () => {
+            tr.nodes([]);
+            layer.draw();
+        });
+    </script>
+</body>
+</html>

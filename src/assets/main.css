@@ -1,0 +1,29 @@
+body
+{
+  margin: 0;
+  padding: 0;
+  color: var(--van-text-color);
+  background-color: var(--van-background);
+}
+
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100dvh;
+}
+
+main {
+  width: 100%;
+  height: 100%;
+  max-width: 100dvw;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.center {
+  align-items: center;
+  justify-content: center;
+}
